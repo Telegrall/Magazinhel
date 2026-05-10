@@ -3,90 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Магазин — Для покупателей и не только</title>
+    <title>Магазин — Для покупателей</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system, sans-serif; }
-        body {
-            background: radial-gradient(ellipse at 30% 40%, #0a0f2a, #03050b);
-            color:#eef4ff; min-height:100vh; padding:12px; padding-bottom:30px;
-        }
+        body { background: radial-gradient(ellipse at 30% 40%, #0a0f2a, #03050b); color:#eef4ff; min-height:100vh; padding:12px; padding-bottom:30px; }
         .stars { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; }
         .star { position:absolute; background:#fff; border-radius:50%; width:2px; height:2px; opacity:0; animation:twinkle 3s infinite alternate; }
         @keyframes twinkle { 0%{opacity:0;transform:scale(0.8);} 100%{opacity:1;transform:scale(1.2);} }
         .container { max-width:500px; margin:0 auto; position:relative; z-index:10; }
+        .login-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:80vh; }
+        .login-card { background:rgba(31,44,56,0.9); border-radius:24px; padding:30px; width:100%; max-width:350px; border:1px solid #2b3b4c; text-align:center; }
+        .login-card h1 { color:#2b9aff; margin-bottom:8px; }
+        .login-card input { width:100%; padding:12px; margin-bottom:12px; background:#0e1621; border:1px solid #2b3b4c; border-radius:12px; color:#fff; }
+        .login-card button { width:100%; padding:12px; background:#2b9aff; border:none; border-radius:12px; color:#fff; font-weight:600; cursor:pointer; }
         .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
         .header h1 { font-size:1.5rem; color:#2b9aff; }
-        .btn-login { background:#2b9aff; border:none; color:#fff; padding:8px 16px; border-radius:20px; cursor:pointer; font-weight:600; font-size:0.8rem; }
         .btn-logout { background:#ff3b30; border:none; color:#fff; padding:8px 16px; border-radius:20px; cursor:pointer; font-weight:600; font-size:0.8rem; }
         .tabs { display:flex; gap:8px; margin-bottom:16px; }
         .tab { flex:1; text-align:center; padding:10px; background:rgba(31,44,56,0.8); border-radius:16px; cursor:pointer; font-weight:500; font-size:0.8rem; border:1px solid #2b3b4c; }
         .tab.active { background:#2b9aff; border-color:#2b9aff; }
         .card { background:rgba(31,44,56,0.8); border-radius:20px; padding:16px; margin-bottom:12px; border:1px solid #2b3b4c; }
         .product-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #2b3b4c; }
-        .product-item:last-child { border-bottom:none; }
         .btn { background:#2b9aff; border:none; border-radius:14px; padding:10px; color:#fff; font-weight:600; cursor:pointer; }
-        .btn-outline { background:transparent; border:1px solid #2b9aff; color:#2b9aff; }
         .btn-small { padding:6px 12px; font-size:0.7rem; border-radius:10px; }
         .input-field { width:60px; padding:6px; background:#0e1621; border:1px solid #2b3b4c; border-radius:8px; color:#fff; text-align:center; }
         .cart-total { margin-top:12px; padding-top:12px; border-top:1px solid #2b3b4c; font-weight:600; }
-        .badge { background:#ff3b30; color:#fff; border-radius:10px; padding:2px 7px; font-size:0.7rem; }
-        .lock-message { text-align:center; padding:30px; color:#8e9eae; }
-        .whale { position:fixed; bottom:20px; right:20px; font-size:3rem; opacity:0.3; pointer-events:none; z-index:0; }
         .hidden { display:none !important; }
     </style>
 </head>
 <body>
 <div class="stars" id="starsContainer"></div>
-<div class="whale">🐋</div>
 
 <div class="container">
-    <div class="header">
-        <h1>Магазин</h1>
-        <div>
-            <span id="userDisplay" style="font-size:0.8rem; margin-right:8px;"></span>
-            <button class="btn-login" id="loginBtn" onclick="openLogin()">Войти</button>
-            <button class="btn-logout hidden" id="logoutBtn" onclick="logout()">Выйти</button>
+    <!-- ЭКРАН ВХОДА -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-card">
+            <h1>Магазин</h1>
+            <p style="color:#8e9eae; margin-bottom:20px;">Войдите, чтобы продолжить</p>
+            <input type="text" id="loginName" placeholder="Ваше имя">
+            <input type="text" id="loginPhone" placeholder="Номер телефона">
+            <button onclick="doLogin()">Войти</button>
         </div>
     </div>
 
-    <div class="tabs">
-        <div class="tab active" onclick="switchTab('products')">Товары</div>
-        <div class="tab" onclick="switchTab('cart')">Заказать</div>
-        <div class="tab" onclick="switchTab('mycard')">Моя карта</div>
-    </div>
-
-    <!-- Вкладка Товары -->
-    <div id="tabProducts">
-        <div id="productsList"></div>
-        <button class="btn-outline" style="width:100%; margin-top:8px;" onclick="alert('Ссылка на канал появится позже')">Посмотреть фото товаров в канале</button>
-    </div>
-
-    <!-- Вкладка Заказать -->
-    <div id="tabCart" class="hidden">
-        <div id="cartContent">
-            <div class="lock-message">
-                <p>Этот раздел доступен с аккаунтом</p>
-                <button class="btn" onclick="openLogin()">Войти</button>
-            </div>
+    <!-- ОСНОВНОЙ ИНТЕРФЕЙС -->
+    <div id="mainScreen" class="hidden">
+        <div class="header">
+            <h1>Магазин</h1>
+            <button class="btn-logout" onclick="logout()">Выйти</button>
         </div>
-    </div>
 
-    <!-- Вкладка Моя карта -->
-    <div id="tabMyCard" class="hidden">
-        <div id="myCardContent">
-            <div class="lock-message">
-                <p>Этот раздел доступен с аккаунтом</p>
-                <button class="btn" onclick="openLogin()">Войти</button>
-            </div>
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('products')">Товары</div>
+            <div class="tab" onclick="switchTab('cart')">Заказать</div>
+            <div class="tab" onclick="switchTab('mycard')">Моя карта</div>
         </div>
-    </div>
 
-    <!-- Кнопка поддержки -->
-    <button class="btn-outline" style="width:100%; margin-top:16px;" onclick="alert('Чат с магазином появится позже')">Поддержка</button>
+        <div id="tabProducts"><div id="productsList"></div></div>
+        <div id="tabCart" class="hidden"><div id="cartContent"></div></div>
+        <div id="tabMyCard" class="hidden"><div id="myCardContent"></div></div>
+
+        <button class="btn" style="width:100%; margin-top:12px; background:transparent; border:1px solid #2b9aff; color:#2b9aff;" onclick="alert('Ссылка на канал появится позже')">Посмотреть фото в канале</button>
+    </div>
 </div>
 
 <script>
-    // Звёзды
     const starsContainer = document.getElementById('starsContainer');
     for (let i = 0; i < 80; i++) {
         const star = document.createElement('div');
@@ -99,176 +80,93 @@
 
     let currentUser = JSON.parse(localStorage.getItem('store_client') || 'null');
     let cart = JSON.parse(localStorage.getItem('store_cart') || '[]');
-    let currentTab = 'products';
 
-    // Товары (заглушка, потом из Supabase)
     const products = [
         { id:101, name:'Блокнот', price:150, stock:20 },
         { id:102, name:'Сквиш', price:200, stock:15 },
-        { id:103, name:'Вкусняшка', price:100, stock:50 },
-        { id:104, name:'Ручка', price:50, stock:100 }
+        { id:103, name:'Вкусняшка', price:100, stock:50 }
     ];
 
-    function switchTab(tab) {
-        currentTab = tab;
-        document.querySelectorAll('.tab').forEach((t, i) => {
-            t.classList.toggle('active', (i === 0 && tab === 'products') || (i === 1 && tab === 'cart') || (i === 2 && tab === 'mycard'));
-        });
-        document.getElementById('tabProducts').classList.toggle('hidden', tab !== 'products');
-        document.getElementById('tabCart').classList.toggle('hidden', tab !== 'cart');
-        document.getElementById('tabMyCard').classList.toggle('hidden', tab !== 'mycard');
-        if (tab === 'cart') renderCart();
-        if (tab === 'mycard') renderMyCard();
-        if (tab === 'products') renderProducts();
+    if (currentUser) {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('mainScreen').classList.remove('hidden');
+        renderProducts();
     }
 
-    function openLogin() {
-        const name = prompt('Ваше имя:');
-        const phone = prompt('Номер телефона:');
-        if (name && phone) {
-            currentUser = { name, phone };
-            localStorage.setItem('store_client', JSON.stringify(currentUser));
-            updateUserUI();
-            switchTab(currentTab);
-        }
+    function doLogin() {
+        const name = document.getElementById('loginName').value.trim();
+        const phone = document.getElementById('loginPhone').value.trim();
+        if (!name || !phone) return alert('Заполните все поля');
+        currentUser = { name, phone };
+        localStorage.setItem('store_client', JSON.stringify(currentUser));
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('mainScreen').classList.remove('hidden');
+        renderProducts();
     }
 
     function logout() {
         currentUser = null;
         localStorage.removeItem('store_client');
-        updateUserUI();
-        switchTab('products');
+        document.getElementById('loginScreen').classList.remove('hidden');
+        document.getElementById('mainScreen').classList.add('hidden');
     }
 
-    function updateUserUI() {
-        if (currentUser) {
-            document.getElementById('userDisplay').innerText = currentUser.name;
-            document.getElementById('loginBtn').classList.add('hidden');
-            document.getElementById('logoutBtn').classList.remove('hidden');
-        } else {
-            document.getElementById('userDisplay').innerText = '';
-            document.getElementById('loginBtn').classList.remove('hidden');
-            document.getElementById('logoutBtn').classList.add('hidden');
-        }
+    function switchTab(tab) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`.tab[onclick*="${tab}"]`).classList.add('active');
+        document.getElementById('tabProducts').classList.toggle('hidden', tab !== 'products');
+        document.getElementById('tabCart').classList.toggle('hidden', tab !== 'cart');
+        document.getElementById('tabMyCard').classList.toggle('hidden', tab !== 'mycard');
+        if (tab === 'cart') renderCart();
+        if (tab === 'mycard') renderMyCard();
     }
 
     function renderProducts() {
         document.getElementById('productsList').innerHTML = products.map(p => `
             <div class="product-item">
-                <div>
-                    <b>#${p.id} ${p.name}</b><br>
-                    <small>${p.price} руб | В наличии: ${p.stock} шт</small>
-                </div>
-                ${currentUser ? `
-                    <button class="btn btn-small" onclick="addToCart(${p.id})">В корзину</button>
-                ` : ''}
+                <div><b>#${p.id} ${p.name}</b><br><small>${p.price} руб | В наличии: ${p.stock}</small></div>
+                <button class="btn btn-small" onclick="addToCart(${p.id})">В корзину</button>
             </div>
         `).join('');
     }
 
-    function addToCart(productId) {
-        const product = products.find(p => p.id === productId);
-        if (!product || product.stock <= 0) return alert('Товара нет в наличии');
-        
-        const existing = cart.find(c => c.id === productId);
-        if (existing) {
-            if (existing.qty >= product.stock) return alert('Больше нет в наличии');
-            existing.qty++;
-        } else {
-            cart.push({ id: productId, qty: 1 });
-        }
+    function addToCart(pid) {
+        const p = products.find(pr => pr.id === pid);
+        if (!p || p.stock <= 0) return alert('Нет в наличии');
+        const ex = cart.find(c => c.id === pid);
+        if (ex) { if (ex.qty >= p.stock) return alert('Больше нет'); ex.qty++; }
+        else cart.push({ id: pid, qty: 1 });
         localStorage.setItem('store_cart', JSON.stringify(cart));
-        alert('Добавлено в корзину');
+        alert('Добавлено');
     }
 
     function renderCart() {
-        if (!currentUser) {
-            document.getElementById('cartContent').innerHTML = `
-                <div class="lock-message">
-                    <p>Этот раздел доступен с аккаунтом</p>
-                    <button class="btn" onclick="openLogin()">Войти</button>
-                </div>
-            `;
-            return;
-        }
-        
-        if (cart.length === 0) {
-            document.getElementById('cartContent').innerHTML = '<p style="text-align:center; padding:20px;">Корзина пуста</p>';
-            return;
-        }
-        
+        if (cart.length === 0) { document.getElementById('cartContent').innerHTML = '<p style="text-align:center;padding:20px;">Корзина пуста</p>'; return; }
         let total = 0;
         document.getElementById('cartContent').innerHTML = cart.map((c, i) => {
-            const product = products.find(p => p.id === c.id);
-            if (!product) return '';
-            const subtotal = product.price * c.qty;
-            total += subtotal;
-            return `
-                <div class="product-item">
-                    <div>
-                        <b>#${product.id} ${product.name}</b><br>
-                        <small>${product.price} руб x ${c.qty} = ${subtotal} руб</small>
-                        <small>(Осталось: ${product.stock} шт)</small>
-                    </div>
-                    <div style="display:flex; gap:4px; align-items:center;">
-                        <input type="number" class="input-field" value="${c.qty}" min="1" max="${product.stock}" onchange="updateQty(${i}, this.value)">
-                        <button class="btn btn-small" style="background:#ff3b30;" onclick="removeFromCart(${i})">X</button>
-                    </div>
-                </div>
-            `;
-        }).join('') + `<div class="cart-total">Итого: ${total} руб</div>
-            <button class="btn" onclick="placeOrder()" style="margin-top:12px;">Заказать</button>
-        `;
+            const p = products.find(pr => pr.id === c.id);
+            if (!p) return '';
+            total += p.price * c.qty;
+            return `<div class="product-item"><div><b>#${p.id} ${p.name}</b><br>${p.price} x ${c.qty} = ${p.price*c.qty} руб</div>
+                <div style="display:flex;gap:4px;align-items:center;">
+                    <input type="number" class="input-field" value="${c.qty}" min="1" max="${p.stock}" onchange="updateQty(${i},this.value)">
+                    <button class="btn btn-small" style="background:#ff3b30;" onclick="removeFromCart(${i})">X</button>
+                </div></div>`;
+        }).join('') + `<div class="cart-total">Итого: ${total} руб</div><button class="btn" onclick="placeOrder()" style="margin-top:12px;">Заказать</button>`;
     }
 
-    function updateQty(index, qty) {
-        qty = parseInt(qty);
-        if (isNaN(qty) || qty < 1) qty = 1;
-        const product = products.find(p => p.id === cart[index].id);
-        if (product && qty > product.stock) qty = product.stock;
-        cart[index].qty = qty;
-        localStorage.setItem('store_cart', JSON.stringify(cart));
-        renderCart();
-    }
-
-    function removeFromCart(index) {
-        cart.splice(index, 1);
-        localStorage.setItem('store_cart', JSON.stringify(cart));
-        renderCart();
-    }
+    function updateQty(i, v) { v = parseInt(v); if (isNaN(v) || v < 1) v = 1; const p = products.find(pr => pr.id === cart[i].id); if (p && v > p.stock) v = p.stock; cart[i].qty = v; localStorage.setItem('store_cart', JSON.stringify(cart)); renderCart(); }
+    function removeFromCart(i) { cart.splice(i, 1); localStorage.setItem('store_cart', JSON.stringify(cart)); renderCart(); }
 
     function placeOrder() {
-        const time = prompt('На какое время заказ? (пока заглушка)') || 'не указано';
-        const lines = cart.map(c => {
-            const p = products.find(pr => pr.id === c.id);
-            return p ? `#${p.id} ${p.name} - ${c.qty} шт` : '';
-        }).filter(Boolean).join('\n');
-        
-        const body = `Здравствуйте, хочу заказать эти позиции на ${time}:\n\n${lines}\n\nС уважением, ${currentUser.name}`;
-        window.location.href = `mailto:?subject=Заказ&body=${encodeURIComponent(body)}`;
+        const time = prompt('На какое время? (пока заглушка)') || 'не указано';
+        const lines = cart.map(c => { const p = products.find(pr => pr.id === c.id); return p ? `#${p.id} ${p.name} - ${c.qty} шт` : ''; }).filter(Boolean).join('\n');
+        window.location.href = `mailto:?subject=Заказ&body=${encodeURIComponent('Здравствуйте, хочу заказать эти позиции на ' + time + ':\n\n' + lines + '\n\nС уважением, ' + currentUser.name)}`;
     }
 
     function renderMyCard() {
-        if (!currentUser) {
-            document.getElementById('myCardContent').innerHTML = `
-                <div class="lock-message">
-                    <p>Этот раздел доступен с аккаунтом</p>
-                    <button class="btn" onclick="openLogin()">Войти</button>
-                </div>
-            `;
-            return;
-        }
-        document.getElementById('myCardContent').innerHTML = `
-            <div class="card">
-                <p><b>Имя:</b> ${currentUser.name}</p>
-                <p><b>Телефон:</b> ${currentUser.phone}</p>
-                <p><b>Карта:</b> ожидает активации в магазине</p>
-            </div>
-        `;
+        document.getElementById('myCardContent').innerHTML = `<div class="card"><p><b>Имя:</b> ${currentUser.name}</p><p><b>Телефон:</b> ${currentUser.phone}</p><p><b>Карта:</b> ожидает активации в магазине</p></div>`;
     }
-
-    updateUserUI();
-    renderProducts();
 </script>
 </body>
 </html>
