@@ -34,7 +34,6 @@
         .store-badge { display:inline-block; padding:3px 8px; border-radius:8px; font-size:0.65rem; font-weight:600; }
         .store-open { background:#d4f5d4; color:#1a7a1a; }
         .store-closed { background:#ffe0e0; color:#c0392b; }
-        .order-items { font-size:0.75rem; color:#8e9eae; margin-top:4px; }
     </style>
 </head>
 <body>
@@ -176,16 +175,8 @@
         }
         
         cart = []; discountPercent = 0; localStorage.removeItem('store_cart');
-        showQRModal(pickupCode);
+        alert('Заказ оформлен! Код для получения: ' + pickupCode);
         renderCart();
-    }
-
-    function showQRModal(code) {
-        const modal = document.createElement('div');
-        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:200;';
-        modal.innerHTML = `<div style="background:#1f2c38;border-radius:20px;padding:24px;text-align:center;max-width:300px;width:90%;"><h3 style="color:#2b9aff;">Заказ оформлен!</h3><p>Код:</p><div style="font-size:2rem;font-weight:bold;color:#fff;">${code}</div><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${code}" width="150"><p style="font-size:0.8rem;color:#8e9eae;">Покажите сотруднику</p><button class="btn" onclick="this.closest('div').parentElement.remove()">Закрыть</button></div>`;
-        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-        document.body.appendChild(modal);
     }
 
     async function renderProfile() {
@@ -200,8 +191,7 @@
         document.getElementById('profileContent').innerHTML = `
             <div class="card">
                 <p><b>Имя:</b> ${currentUser.name}</p><p><b>Телефон:</b> ${currentUser.phone}</p>
-                ${clientInfo.card_number ? `<p><b>Карта:</b> ${clientInfo.card_number}</p><p><b>Баллы:</b> ${clientInfo.balance||0}</p><p><b>Статус:</b> ${clientInfo.active ? 'Активирована' : 'Не активирована'}</p>
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${clientInfo.card_number}" width="100">` : `
+                ${clientInfo.card_number ? `<p><b>Карта:</b> ...${clientInfo.card_number.slice(-4)}</p><p><b>Баллы:</b> ${clientInfo.balance||0}</p><p><b>Статус:</b> ${clientInfo.active ? 'Активирована' : 'Не активирована'}</p>` : `
                 <p style="color:#8e9eae;">У вас пока нет карты.</p>
                 <button class="btn" onclick="createCard()">Создать карту</button>
                 <p style="font-size:0.7rem;color:#8e9eae;margin-top:8px;">Активация только в магазине.</p>`}
@@ -211,8 +201,8 @@
             ${allOrders.length===0 ? '<p style="color:#8e9eae;">Нет заказов</p>' : allOrders.map(o => {
                 const items = o.items || [];
                 const itemsText = items.map(i => `#${i.product_code} ${i.product_name} x${i.quantity}`).join(', ');
-                return `<div class="order-item"><b>${new Date(o.created_at).toLocaleString('ru')}</b><br>${o.total} руб | Баллы: +${o.total_bonus||0}<br><div class="order-items">${itemsText}</div>Статус: ${o.status}
-                ${o.status==='ready' && o.pickup_code ? `<div style="margin-top:8px;"><b>Код: ${o.pickup_code}</b><br><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${o.pickup_code}" width="100"></div>` : ''}
+                return `<div class="order-item"><b>${new Date(o.created_at).toLocaleString('ru')}</b><br>${o.total} руб | Баллы: +${o.total_bonus||0} | Списано: ${o.use_bonus||0}<br><div>${itemsText}</div>Статус: ${o.status}
+                ${o.status==='ready' && o.pickup_code ? `<div style="margin-top:8px;"><b>Код: ${o.pickup_code}</b></div>` : ''}
                 ${o.status==='done' ? `<button class="btn btn-small" onclick="rateOrder(${o.id})" style="margin-top:6px;">Оценить</button>` : ''}</div>`;
             }).join('')}
         `;
@@ -236,4 +226,4 @@
     };
 </script>
 </body>
-</html>
+    </html>
