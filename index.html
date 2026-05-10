@@ -34,9 +34,7 @@
         .store-badge { display:inline-block; padding:3px 8px; border-radius:8px; font-size:0.65rem; font-weight:600; }
         .store-open { background:#d4f5d4; color:#1a7a1a; }
         .store-closed { background:#ffe0e0; color:#c0392b; }
-        .qr-modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; align-items:center; justify-content:center; z-index:200; }
-        .qr-box { background:#1f2c38; border-radius:20px; padding:24px; text-align:center; max-width:300px; width:90%; }
-        .qr-box .code { font-size:2rem; font-weight:bold; letter-spacing:4px; color:#fff; margin:12px 0; }
+        .order-items { font-size:0.75rem; color:#8e9eae; margin-top:4px; }
     </style>
 </head>
 <body>
@@ -79,13 +77,9 @@
     let discountPercent = 0;
 
     async function loadStoreConfig() {
-        try {
-            const { data } = await sb.from('store_config').select('*').eq('id', 1).single();
-            if (data) { storeConfig.open = data.open; storeConfig.hours = data.hours || '09:00 - 20:00'; storeConfig.mapLink = data.map_link || ''; }
-        } catch(e) {}
+        try { const { data } = await sb.from('store_config').select('*').eq('id', 1).single(); if (data) { storeConfig.open = data.open; storeConfig.hours = data.hours || '09:00 - 20:00'; storeConfig.mapLink = data.map_link || ''; } } catch(e) {}
         document.getElementById('storeStatusBadge').innerHTML = `<span class="store-badge ${storeConfig.open ? 'store-open' : 'store-closed'}">${storeConfig.open ? 'Открыто' : 'Закрыто'}</span>`;
     }
-
     async function loadProducts() { try { const { data } = await sb.from('store_products').select('*').order('code'); products = data || []; } catch(e) { products = []; } }
 
     function showMainScreen() {
@@ -94,13 +88,11 @@
         document.getElementById('clientBottomBar').style.display = 'flex';
         loadStoreConfig(); loadProducts().then(renderProducts);
     }
-
     function showLoginScreen() {
         document.getElementById('loginScreen').classList.remove('hidden');
         document.getElementById('mainScreen').classList.add('hidden');
         document.getElementById('clientBottomBar').style.display = 'none';
     }
-
     if (currentUser) { showMainScreen(); }
 
     async function clientLogin() {
@@ -112,7 +104,6 @@
         localStorage.setItem('store_client', JSON.stringify(currentUser));
         showMainScreen();
     }
-
     function clientLogout() { currentUser = null; localStorage.removeItem('store_client'); showLoginScreen(); }
 
     function clientTab(tab) {
@@ -130,7 +121,6 @@
         document.getElementById('productsList').innerHTML = products.length===0 ? '<p style="text-align:center;padding:20px;">Товары скоро появятся</p>' :
             products.map(p => `<div class="product-item"><div><b>#${p.code} ${p.name}</b><br><small>${p.price} руб | +${p.bonus_points||0} баллов</small></div><button class="btn btn-small" onclick="clientAddToCart('${p.code}')">В корзину</button></div>`).join('');
     }
-
     function clientAddToCart(code) {
         const p = products.find(pr => pr.code == code);
         if (!p || p.stock <= 0) return alert('Нет в наличии');
@@ -151,6 +141,7 @@
             }).join('')}
             <div class="cart-total">Сумма: ${total} руб | Баллов: +${totalBonus}</div>
             ${discountPercent > 0 ? `<div class="cart-total" style="color:#4bcb6e;">Скидка: ${discountPercent}%</div>` : ''}
+            <div class="promo-field" style="margin-top:8px;"><label>Списать баллов:</label><input type="number" id="useBonus" placeholder="0" value="0" min="0"></div>
             <button class="btn" onclick="clientPlaceOrder()" style="margin-top:12px;">Заказать</button>`;
     }
 
@@ -161,7 +152,6 @@
         if (data) { discountPercent = data.discount; alert('Скидка '+discountPercent+'% применена!'); renderCart(); }
         else alert('Промокод не найден');
     };
-
     function clientUpdateQty(i, v) { v=parseInt(v); if(isNaN(v)||v<1) v=1; cart[i].qty=v; localStorage.setItem('store_cart',JSON.stringify(cart)); renderCart(); }
     function clientRemoveFromCart(i) { cart.splice(i,1); localStorage.setItem('store_cart',JSON.stringify(cart)); renderCart(); }
 
@@ -171,11 +161,19 @@
         if (discountPercent > 0) total = Math.round(total * (1 - discountPercent / 100));
         const totalBonus = cart.reduce((s, c) => s + (c.bonus||0) * c.qty, 0);
         const pickupCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const useBonus = parseInt(document.getElementById('useBonus')?.value || 0) || 0;
         
         await sb.from('store_orders').insert({
             client_name: currentUser.name, client_phone: currentUser.phone, client_card: currentUser.cardLast4,
-            items, total, total_bonus: totalBonus, status: 'new', pickup_code: pickupCode
+            items, total, total_bonus: totalBonus, status: 'new', pickup_code: pickupCode, use_bonus: useBonus
         });
+        
+        if (useBonus > 0 && currentUser.cardLast4) {
+            try {
+                const { data: client } = await sb.from('store_clients').select('*').ilike('card_number', '%'+currentUser.cardLast4).single();
+                if (client) await sb.from('store_clients').update({ balance: Math.max(0, (client.balance||0) - useBonus) }).eq('id', client.id);
+            } catch(e) {}
+        }
         
         cart = []; discountPercent = 0; localStorage.removeItem('store_cart');
         showQRModal(pickupCode);
@@ -184,16 +182,8 @@
 
     function showQRModal(code) {
         const modal = document.createElement('div');
-        modal.className = 'qr-modal';
-        modal.innerHTML = `
-            <div class="qr-box">
-                <h3 style="color:#2b9aff;">Заказ оформлен!</h3>
-                <p style="margin:8px 0;">Ваш код для получения:</p>
-                <div class="code">${code}</div>
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${code}" width="150" height="150" style="margin:8px 0;">
-                <p style="font-size:0.8rem;color:#8e9eae;">Покажите код или QR сотруднику</p>
-                <button class="btn" onclick="this.closest('.qr-modal').remove()" style="margin-top:8px;">Закрыть</button>
-            </div>`;
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:200;';
+        modal.innerHTML = `<div style="background:#1f2c38;border-radius:20px;padding:24px;text-align:center;max-width:300px;width:90%;"><h3 style="color:#2b9aff;">Заказ оформлен!</h3><p>Код:</p><div style="font-size:2rem;font-weight:bold;color:#fff;">${code}</div><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${code}" width="150"><p style="font-size:0.8rem;color:#8e9eae;">Покажите сотруднику</p><button class="btn" onclick="this.closest('div').parentElement.remove()">Закрыть</button></div>`;
         modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
         document.body.appendChild(modal);
     }
@@ -210,19 +200,21 @@
         document.getElementById('profileContent').innerHTML = `
             <div class="card">
                 <p><b>Имя:</b> ${currentUser.name}</p><p><b>Телефон:</b> ${currentUser.phone}</p>
-                ${clientInfo.card_number ? `<p><b>Карта:</b> ${clientInfo.card_number}</p><p><b>Баллы:</b> ${clientInfo.balance||0}</p><p><b>Статус:</b> ${clientInfo.active ? 'Активирована' : 'Не активирована'}</p>` : `
+                ${clientInfo.card_number ? `<p><b>Карта:</b> ${clientInfo.card_number}</p><p><b>Баллы:</b> ${clientInfo.balance||0}</p><p><b>Статус:</b> ${clientInfo.active ? 'Активирована' : 'Не активирована'}</p>
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${clientInfo.card_number}" width="100">` : `
                 <p style="color:#8e9eae;">У вас пока нет карты.</p>
                 <button class="btn" onclick="createCard()">Создать карту</button>
                 <p style="font-size:0.7rem;color:#8e9eae;margin-top:8px;">Активация только в магазине.</p>`}
                 ${storeConfig.mapLink ? `<a href="${storeConfig.mapLink}" target="_blank" class="btn btn-outline" style="display:block;text-align:center;margin-top:8px;">Место продажи</a>` : ''}
             </div>
             <h3>Мои заказы</h3>
-            ${allOrders.length===0 ? '<p style="color:#8e9eae;">Нет заказов</p>' : allOrders.map(o => `
-                <div class="order-item">
-                    <b>${new Date(o.created_at).toLocaleString('ru')}</b><br>${o.total} руб | Баллы: +${o.total_bonus||0}<br>Статус: ${o.status}
-                    ${o.status==='ready' && o.pickup_code ? `<div style="margin-top:8px;"><b>Код: ${o.pickup_code}</b><br><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${o.pickup_code}" width="100" height="100"></div>` : ''}
-                    ${o.status==='done' ? `<button class="btn btn-small" onclick="rateOrder(${o.id})" style="margin-top:6px;">Оценить</button>` : ''}
-                </div>`).join('')}
+            ${allOrders.length===0 ? '<p style="color:#8e9eae;">Нет заказов</p>' : allOrders.map(o => {
+                const items = o.items || [];
+                const itemsText = items.map(i => `#${i.product_code} ${i.product_name} x${i.quantity}`).join(', ');
+                return `<div class="order-item"><b>${new Date(o.created_at).toLocaleString('ru')}</b><br>${o.total} руб | Баллы: +${o.total_bonus||0}<br><div class="order-items">${itemsText}</div>Статус: ${o.status}
+                ${o.status==='ready' && o.pickup_code ? `<div style="margin-top:8px;"><b>Код: ${o.pickup_code}</b><br><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${o.pickup_code}" width="100"></div>` : ''}
+                ${o.status==='done' ? `<button class="btn btn-small" onclick="rateOrder(${o.id})" style="margin-top:6px;">Оценить</button>` : ''}</div>`;
+            }).join('')}
         `;
     }
 
