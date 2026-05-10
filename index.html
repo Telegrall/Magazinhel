@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system, sans-serif; }
-        body { background: radial-gradient(ellipse at 30% 40%, #0a0f2a, #03050b); color:#eef4ff; min-height:100vh; padding:12px; }
+        body { background: radial-gradient(ellipse at 30% 40%, #0a0f2a, #03050b); color:#eef4ff; min-height:100vh; padding:12px; padding-bottom:80px; }
         .container { max-width:500px; margin:0 auto; }
         .login-card { background:rgba(31,44,56,0.9); border-radius:24px; padding:30px; border:1px solid #2b3b4c; text-align:center; margin-top:40px; }
         .login-card h1 { color:#2b9aff; margin-bottom:8px; }
@@ -17,9 +17,6 @@
         .header h1 { font-size:1.5rem; color:#2b9aff; }
         .btn-sm { padding:8px 16px; border-radius:20px; border:none; cursor:pointer; font-weight:600; font-size:0.8rem; }
         .btn-logout { background:#ff3b30; color:#fff; }
-        .tabs { display:flex; gap:8px; margin-bottom:16px; }
-        .tab { flex:1; text-align:center; padding:10px; background:rgba(31,44,56,0.8); border-radius:16px; cursor:pointer; font-weight:500; font-size:0.8rem; border:1px solid #2b3b4c; }
-        .tab.active { background:#2b9aff; border-color:#2b9aff; }
         .card { background:rgba(31,44,56,0.8); border-radius:20px; padding:16px; margin-bottom:12px; border:1px solid #2b3b4c; }
         .product-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #2b3b4c; }
         .btn { background:#2b9aff; border:none; border-radius:14px; padding:10px; color:#fff; font-weight:600; cursor:pointer; }
@@ -31,13 +28,19 @@
         .order-item { background:rgba(31,44,56,0.8); border-radius:16px; padding:14px; margin-bottom:10px; border:1px solid #2b3b4c; }
         .promo-field { display:flex; gap:8px; margin-bottom:12px; }
         .promo-field input { flex:1; padding:8px; background:#0e1621; border:1px solid #2b3b4c; border-radius:8px; color:#fff; }
+        .bottom-bar { position:fixed; bottom:0; left:0; right:0; background:rgba(31,44,56,0.95); border-top:1px solid #2b3b4c; display:flex; gap:8px; padding:10px 16px; z-index:50; }
+        .bottom-btn { flex:1; text-align:center; padding:10px; border-radius:12px; background:#2b3b4c; border:none; color:#eef4ff; cursor:pointer; font-weight:500; font-size:0.75rem; }
+        .bottom-btn.active { background:#2b9aff; }
+        .store-badge { display:inline-block; padding:3px 8px; border-radius:8px; font-size:0.65rem; font-weight:600; }
+        .store-open { background:#d4f5d4; color:#1a7a1a; }
+        .store-closed { background:#ffe0e0; color:#c0392b; }
     </style>
 </head>
 <body>
 <div class="container">
     <div id="loginScreen" class="login-card">
         <h1>Магазин</h1>
-        <p style="color:#8e9eae; margin-bottom:20px;">Войдите или зарегистрируйтесь</p>
+        <p style="color:#8e9eae; margin-bottom:20px;">Войдите, чтобы продолжить</p>
         <input type="text" id="cName" placeholder="Ваше имя">
         <input type="text" id="cPhone" placeholder="Номер телефона">
         <input type="text" id="cCardLast4" placeholder="Последние 4 цифры карты (если есть)" maxlength="4">
@@ -45,132 +48,82 @@
     </div>
 
     <div id="mainScreen" class="hidden">
-        <div class="header"><h1>Магазин</h1><button class="btn-sm btn-logout" onclick="clientLogout()">Выйти</button></div>
-        <div class="tabs">
-            <div class="tab active" onclick="clientTab('products')">Товары</div>
-            <div class="tab" onclick="clientTab('cart')">Заказать</div>
-            <div class="tab" onclick="clientTab('mycard')">Моя карта</div>
+        <div class="header">
+            <h1>Магазин</h1>
+            <div><span id="storeStatusBadge"></span> <button class="btn-sm btn-logout" onclick="clientLogout()">Выйти</button></div>
         </div>
         <div id="ctabProducts"><div id="productsList"></div></div>
         <div id="ctabCart" class="hidden"><div id="cartContent"></div></div>
-        <div id="ctabMyCard" class="hidden"><div id="myCardContent"></div></div>
+        <div id="ctabProfile" class="hidden"><div id="profileContent"></div></div>
     </div>
 </div>
 
-<script>
-    const SUPABASE_URL = "https://iiuahjmpszfcgtwapidt.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_iFYpqkv4D0qEOj4Dn1X9Nw_OH9d5Bji";
-    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+<div class="bottom-bar" id="clientBottomBar" style="display:none;">
+    <button class="bottom-btn active" onclick="clientTab('products')">Товары</button>
+    <button class="bottom-btn" onclick="clientTab('cart')">Корзина</button>
+    <button class="bottom-btn" onclick="clientTab('profile')">Профиль</button>
+</div><!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Магазин</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system, sans-serif; }
+        body { background: radial-gradient(ellipse at 30% 40%, #0a0f2a, #03050b); color:#eef4ff; min-height:100vh; padding:12px; padding-bottom:80px; }
+        .container { max-width:500px; margin:0 auto; }
+        .login-card { background:rgba(31,44,56,0.9); border-radius:24px; padding:30px; border:1px solid #2b3b4c; text-align:center; margin-top:40px; }
+        .login-card h1 { color:#2b9aff; margin-bottom:8px; }
+        .login-card input { width:100%; padding:12px; margin-bottom:12px; background:#0e1621; border:1px solid #2b3b4c; border-radius:12px; color:#fff; }
+        .login-card button { width:100%; padding:12px; background:#2b9aff; border:none; border-radius:12px; color:#fff; font-weight:600; cursor:pointer; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+        .header h1 { font-size:1.5rem; color:#2b9aff; }
+        .btn-sm { padding:8px 16px; border-radius:20px; border:none; cursor:pointer; font-weight:600; font-size:0.8rem; }
+        .btn-logout { background:#ff3b30; color:#fff; }
+        .card { background:rgba(31,44,56,0.8); border-radius:20px; padding:16px; margin-bottom:12px; border:1px solid #2b3b4c; }
+        .product-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #2b3b4c; }
+        .btn { background:#2b9aff; border:none; border-radius:14px; padding:10px; color:#fff; font-weight:600; cursor:pointer; }
+        .btn-small { padding:6px 12px; font-size:0.7rem; border-radius:10px; }
+        .btn-danger { background:#ff3b30; }
+        .input-field { width:60px; padding:6px; background:#0e1621; border:1px solid #2b3b4c; border-radius:8px; color:#fff; text-align:center; }
+        .cart-total { margin-top:12px; padding-top:12px; border-top:1px solid #2b3b4c; font-weight:600; }
+        .hidden { display:none !important; }
+        .order-item { background:rgba(31,44,56,0.8); border-radius:16px; padding:14px; margin-bottom:10px; border:1px solid #2b3b4c; }
+        .promo-field { display:flex; gap:8px; margin-bottom:12px; }
+        .promo-field input { flex:1; padding:8px; background:#0e1621; border:1px solid #2b3b4c; border-radius:8px; color:#fff; }
+        .bottom-bar { position:fixed; bottom:0; left:0; right:0; background:rgba(31,44,56,0.95); border-top:1px solid #2b3b4c; display:flex; gap:8px; padding:10px 16px; z-index:50; }
+        .bottom-btn { flex:1; text-align:center; padding:10px; border-radius:12px; background:#2b3b4c; border:none; color:#eef4ff; cursor:pointer; font-weight:500; font-size:0.75rem; }
+        .bottom-btn.active { background:#2b9aff; }
+        .store-badge { display:inline-block; padding:3px 8px; border-radius:8px; font-size:0.65rem; font-weight:600; }
+        .store-open { background:#d4f5d4; color:#1a7a1a; }
+        .store-closed { background:#ffe0e0; color:#c0392b; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div id="loginScreen" class="login-card">
+        <h1>Магазин</h1>
+        <p style="color:#8e9eae; margin-bottom:20px;">Войдите, чтобы продолжить</p>
+        <input type="text" id="cName" placeholder="Ваше имя">
+        <input type="text" id="cPhone" placeholder="Номер телефона">
+        <input type="text" id="cCardLast4" placeholder="Последние 4 цифры карты (если есть)" maxlength="4">
+        <button onclick="clientLogin()">Войти</button>
+    </div>
 
-    let currentUser = JSON.parse(localStorage.getItem('store_client')||'null');
-    let cart = JSON.parse(localStorage.getItem('store_cart')||'[]');
-    let products = [];
+    <div id="mainScreen" class="hidden">
+        <div class="header">
+            <h1>Магазин</h1>
+            <div><span id="storeStatusBadge"></span> <button class="btn-sm btn-logout" onclick="clientLogout()">Выйти</button></div>
+        </div>
+        <div id="ctabProducts"><div id="productsList"></div></div>
+        <div id="ctabCart" class="hidden"><div id="cartContent"></div></div>
+        <div id="ctabProfile" class="hidden"><div id="profileContent"></div></div>
+    </div>
+</div>
 
-    async function loadProducts() {
-        const { data } = await sb.from('store_products').select('*').order('code');
-        products = data || [];
-    }
-
-    if (currentUser) { document.getElementById('loginScreen').classList.add('hidden'); document.getElementById('mainScreen').classList.remove('hidden'); loadProducts().then(renderProducts); }
-
-    async function clientLogin() {
-        const name = document.getElementById('cName').value.trim();
-        const phone = document.getElementById('cPhone').value.trim();
-        const cardLast4 = document.getElementById('cCardLast4').value.trim();
-        if (!name || !phone) return alert('Введите имя и телефон');
-        
-        currentUser = { name, phone, cardLast4 };
-        localStorage.setItem('store_client', JSON.stringify(currentUser));
-        
-        // Ищем клиента в базе
-        if (cardLast4) {
-            const { data } = await sb.from('store_clients').select('*').ilike('card_number', '%'+cardLast4).single();
-            if (data) currentUser.balance = data.balance || 0;
-        }
-        
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('mainScreen').classList.remove('hidden');
-        loadProducts().then(renderProducts);
-    }
-
-    function clientLogout() { currentUser = null; localStorage.removeItem('store_client'); location.reload(); }
-
-    function clientTab(tab) {
-        document.querySelectorAll('#mainScreen .tab').forEach(t => t.classList.remove('active'));
-        document.querySelector(`#mainScreen .tab[onclick*="${tab}"]`).classList.add('active');
-        ['Products','Cart','MyCard'].forEach(t => document.getElementById('ctab'+t).classList.add('hidden'));
-        document.getElementById('ctab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.remove('hidden');
-        if (tab==='products') renderProducts();
-        if (tab==='cart') renderCart();
-        if (tab==='mycard') renderMyCard();
-    }
-
-    function renderProducts() {
-        document.getElementById('productsList').innerHTML = products.length===0 ? '<p style="text-align:center;padding:20px;">Товары скоро появятся</p>' :
-            products.map(p => `<div class="product-item"><div><b>#${p.code} ${p.name}</b><br><small>${p.price} руб | +${p.bonus_points||0} баллов</small></div><button class="btn btn-small" onclick="clientAddToCart('${p.code}')">В корзину</button></div>`).join('');
-    }
-
-    function clientAddToCart(code) {
-        const p = products.find(pr => pr.code == code);
-        if (!p || p.stock <= 0) return alert('Нет в наличии');
-        const ex = cart.find(c => c.code == code);
-        if (ex) { if (ex.qty >= p.stock) return alert('Больше нет'); ex.qty++; }
-        else cart.push({ code: p.code, name: p.name, price: p.price, bonus: p.bonus_points||0, qty: 1 });
-        localStorage.setItem('store_cart', JSON.stringify(cart)); alert('Добавлено');
-    }
-
-    function renderCart() {
-        if (cart.length===0) { document.getElementById('cartContent').innerHTML = '<p style="text-align:center;padding:20px;">Корзина пуста</p>'; return; }
-        let total = 0, totalBonus = 0;
-        document.getElementById('cartContent').innerHTML = `
-            <div class="promo-field"><input type="text" id="promoCode" placeholder="Промокод"><button class="btn btn-small" onclick="applyPromo()">Применить</button></div>
-            ${cart.map((c,i) => { total += c.price * c.qty; totalBonus += (c.bonus||0) * c.qty;
-                return `<div class="product-item"><div><b>#${c.code} ${c.name}</b><br>${c.price} x ${c.qty} = ${c.price*c.qty} руб</div>
-                <div style="display:flex;gap:4px;align-items:center;"><input type="number" class="input-field" value="${c.qty}" min="1" onchange="clientUpdateQty(${i},this.value)"><button class="btn btn-small btn-danger" onclick="clientRemoveFromCart(${i})">X</button></div></div>`;
-            }).join('')}
-            <div class="cart-total">Сумма: ${total} руб | Баллов: +${totalBonus}</div>
-            <button class="btn" onclick="clientPlaceOrder()" style="margin-top:12px;">Заказать</button>`;
-    }
-
-    let discountPercent = 0;
-    window.applyPromo = async function() {
-        const code = document.getElementById('promoCode').value.trim();
-        if (!code) return;
-        const { data } = await sb.from('store_promos').select('*').eq('code', code).single();
-        if (data) { discountPercent = data.discount; alert('Скидка '+discountPercent+'% применена!'); renderCart(); }
-        else alert('Промокод не найден');
-    };
-
-    function clientUpdateQty(i, v) { v=parseInt(v); if(isNaN(v)||v<1) v=1; cart[i].qty=v; localStorage.setItem('store_cart',JSON.stringify(cart)); renderCart(); }
-    function clientRemoveFromCart(i) { cart.splice(i,1); localStorage.setItem('store_cart',JSON.stringify(cart)); renderCart(); }
-
-    async function clientPlaceOrder() {
-        const items = cart.map(c => ({ product_code: c.code, product_name: c.name, quantity: c.qty, price: c.price }));
-        let total = items.reduce((s, it) => s + it.price * it.quantity, 0);
-        if (discountPercent > 0) total = Math.round(total * (1 - discountPercent / 100));
-        const totalBonus = cart.reduce((s, c) => s + (c.bonus||0) * c.qty, 0);
-        await sb.from('store_orders').insert({ client_name: currentUser.name, client_phone: currentUser.phone, client_card: currentUser.cardLast4, items, total, total_bonus: totalBonus, status:'new' });
-        cart = []; discountPercent = 0; localStorage.removeItem('store_cart');
-        alert('Заказ оформлен!'); renderCart();
-    }
-
-    async function renderMyCard() {
-        let orders = [];
-        const { data } = await sb.from('store_orders').select('*').eq('client_phone', currentUser.phone).order('created_at',{ascending:false});
-        orders = data || [];
-        
-        let clientInfo = { balance: 0 };
-        if (currentUser.cardLast4) {
-            const { data } = await sb.from('store_clients').select('*').ilike('card_number', '%'+currentUser.cardLast4).single();
-            if (data) clientInfo = data;
-        }
-        
-        document.getElementById('myCardContent').innerHTML = `
-            <div class="card"><p><b>Имя:</b> ${currentUser.name}</p><p><b>Телефон:</b> ${currentUser.phone}</p><p><b>Баллы:</b> ${clientInfo.balance||0}</p></div>
-            <h3 style="margin-top:16px;">Мои заказы</h3>
-            ${orders.length===0 ? '<p>Нет заказов</p>' : orders.map(o => `<div class="order-item"><b>${new Date(o.created_at).toLocaleString('ru')}</b><br>Сумма: ${o.total} руб | Баллы: +${o.total_bonus||0}<br>Статус: ${o.status}</div>`).join('')}
-        `;
-    }
-</script>
-</body>
-</html>
+<div class="bottom-bar" id="clientBottomBar" style="display:none;">
+    <button class="bottom-btn active" onclick="clientTab('products')">Товары</button>
+    <button class="bottom-btn" onclick="clientTab('cart')">Корзина</button>
+    <button class="bottom-btn" onclick="clientTab('profile')">Профиль</button>
+</div>
