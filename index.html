@@ -34,11 +34,13 @@
         .store-badge { display:inline-block; padding:3px 8px; border-radius:8px; font-size:0.65rem; font-weight:600; }
         .store-open { background:#d4f5d4; color:#1a7a1a; }
         .store-closed { background:#ffe0e0; color:#c0392b; }
+        .qr-modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; align-items:center; justify-content:center; z-index:200; }
+        .qr-box { background:#1f2c38; border-radius:20px; padding:24px; text-align:center; max-width:300px; width:90%; }
+        .qr-box .code { font-size:2rem; font-weight:bold; letter-spacing:4px; color:#fff; margin:12px 0; }
     </style>
 </head>
 <body>
 <div class="container" id="appRoot">
-    <!-- ЕДИНСТВЕННЫЙ экран входа -->
     <div id="loginScreen" class="login-card">
         <h1>Магазин</h1>
         <p style="color:#8e9eae; margin-bottom:20px;">Войдите, чтобы продолжить</p>
@@ -48,7 +50,6 @@
         <button onclick="clientLogin()">Войти</button>
     </div>
 
-    <!-- Основной интерфейс -->
     <div id="mainScreen" class="hidden">
         <div class="header">
             <h1>Магазин</h1>
@@ -80,28 +81,18 @@
     async function loadStoreConfig() {
         try {
             const { data } = await sb.from('store_config').select('*').eq('id', 1).single();
-            if (data) {
-                storeConfig.open = data.open;
-                storeConfig.hours = data.hours || '09:00 - 20:00';
-                storeConfig.mapLink = data.map_link || '';
-            }
+            if (data) { storeConfig.open = data.open; storeConfig.hours = data.hours || '09:00 - 20:00'; storeConfig.mapLink = data.map_link || ''; }
         } catch(e) {}
         document.getElementById('storeStatusBadge').innerHTML = `<span class="store-badge ${storeConfig.open ? 'store-open' : 'store-closed'}">${storeConfig.open ? 'Открыто' : 'Закрыто'}</span>`;
     }
 
-    async function loadProducts() {
-        try {
-            const { data } = await sb.from('store_products').select('*').order('code');
-            products = data || [];
-        } catch(e) { products = []; }
-    }
+    async function loadProducts() { try { const { data } = await sb.from('store_products').select('*').order('code'); products = data || []; } catch(e) { products = []; } }
 
     function showMainScreen() {
         document.getElementById('loginScreen').classList.add('hidden');
         document.getElementById('mainScreen').classList.remove('hidden');
         document.getElementById('clientBottomBar').style.display = 'flex';
-        loadStoreConfig();
-        loadProducts().then(renderProducts);
+        loadStoreConfig(); loadProducts().then(renderProducts);
     }
 
     function showLoginScreen() {
@@ -179,9 +170,32 @@
         let total = items.reduce((s, it) => s + it.price * it.quantity, 0);
         if (discountPercent > 0) total = Math.round(total * (1 - discountPercent / 100));
         const totalBonus = cart.reduce((s, c) => s + (c.bonus||0) * c.qty, 0);
-        await sb.from('store_orders').insert({ client_name: currentUser.name, client_phone: currentUser.phone, client_card: currentUser.cardLast4, items, total, total_bonus: totalBonus, status:'new' });
+        const pickupCode = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        await sb.from('store_orders').insert({
+            client_name: currentUser.name, client_phone: currentUser.phone, client_card: currentUser.cardLast4,
+            items, total, total_bonus: totalBonus, status: 'new', pickup_code: pickupCode
+        });
+        
         cart = []; discountPercent = 0; localStorage.removeItem('store_cart');
-        alert('Заказ оформлен!'); renderCart();
+        showQRModal(pickupCode);
+        renderCart();
+    }
+
+    function showQRModal(code) {
+        const modal = document.createElement('div');
+        modal.className = 'qr-modal';
+        modal.innerHTML = `
+            <div class="qr-box">
+                <h3 style="color:#2b9aff;">Заказ оформлен!</h3>
+                <p style="margin:8px 0;">Ваш код для получения:</p>
+                <div class="code">${code}</div>
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${code}" width="150" height="150" style="margin:8px 0;">
+                <p style="font-size:0.8rem;color:#8e9eae;">Покажите код или QR сотруднику</p>
+                <button class="btn" onclick="this.closest('.qr-modal').remove()" style="margin-top:8px;">Закрыть</button>
+            </div>`;
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        document.body.appendChild(modal);
     }
 
     async function renderProfile() {
@@ -190,24 +204,25 @@
             const { data } = await sb.from('store_clients').select('*').ilike('card_number', '%'+currentUser.cardLast4).single();
             if (data) clientInfo = data;
         }
-
         const { data: orders } = await sb.from('store_orders').select('*').or(`client_phone.eq.${currentUser.phone},client_card.eq.${currentUser.cardLast4}`).order('created_at',{ascending:false});
         const allOrders = orders || [];
 
         document.getElementById('profileContent').innerHTML = `
             <div class="card">
-                <p><b>Имя:</b> ${currentUser.name}</p>
-                <p><b>Телефон:</b> ${currentUser.phone}</p>
+                <p><b>Имя:</b> ${currentUser.name}</p><p><b>Телефон:</b> ${currentUser.phone}</p>
                 ${clientInfo.card_number ? `<p><b>Карта:</b> ${clientInfo.card_number}</p><p><b>Баллы:</b> ${clientInfo.balance||0}</p><p><b>Статус:</b> ${clientInfo.active ? 'Активирована' : 'Не активирована'}</p>` : `
                 <p style="color:#8e9eae;">У вас пока нет карты.</p>
                 <button class="btn" onclick="createCard()">Создать карту</button>
-                <p style="font-size:0.7rem; color:#8e9eae; margin-top:8px;">Карту можно активировать только придя в магазин.</p>`}
-                ${storeConfig.mapLink ? `<a href="${storeConfig.mapLink}" target="_blank" class="btn btn-outline" style="display:block; text-align:center; margin-top:8px;">Место продажи</a>` : ''}
+                <p style="font-size:0.7rem;color:#8e9eae;margin-top:8px;">Активация только в магазине.</p>`}
+                ${storeConfig.mapLink ? `<a href="${storeConfig.mapLink}" target="_blank" class="btn btn-outline" style="display:block;text-align:center;margin-top:8px;">Место продажи</a>` : ''}
             </div>
             <h3>Мои заказы</h3>
             ${allOrders.length===0 ? '<p style="color:#8e9eae;">Нет заказов</p>' : allOrders.map(o => `
-                <div class="order-item"><b>${new Date(o.created_at).toLocaleString('ru')}</b><br>${o.total} руб | Баллы: +${o.total_bonus||0}<br>Статус: ${o.status}
-                ${o.status==='done' ? `<button class="btn btn-small" onclick="rateOrder(${o.id})" style="margin-top:6px;">Оценить</button>` : ''}</div>`).join('')}
+                <div class="order-item">
+                    <b>${new Date(o.created_at).toLocaleString('ru')}</b><br>${o.total} руб | Баллы: +${o.total_bonus||0}<br>Статус: ${o.status}
+                    ${o.status==='ready' && o.pickup_code ? `<div style="margin-top:8px;"><b>Код: ${o.pickup_code}</b><br><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${o.pickup_code}" width="100" height="100"></div>` : ''}
+                    ${o.status==='done' ? `<button class="btn btn-small" onclick="rateOrder(${o.id})" style="margin-top:6px;">Оценить</button>` : ''}
+                </div>`).join('')}
         `;
     }
 
@@ -225,8 +240,7 @@
         const rating = prompt('Оцените заказ от 1 до 5:');
         if (!rating || isNaN(rating) || rating < 1 || rating > 5) return;
         await sb.from('store_orders').update({ rating: parseInt(rating) }).eq('id', orderId);
-        alert('Спасибо за оценку!');
-        renderProfile();
+        alert('Спасибо за оценку!'); renderProfile();
     };
 </script>
 </body>
