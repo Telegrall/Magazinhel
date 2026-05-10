@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Магазин — Для покупателей</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system, sans-serif; }
         body { background: radial-gradient(ellipse at 30% 40%, #0a0f2a, #03050b); color:#eef4ff; min-height:100vh; padding:12px; padding-bottom:30px; }
@@ -35,39 +36,39 @@
 <div class="stars" id="starsContainer"></div>
 
 <div class="container">
-    <!-- ЭКРАН ВХОДА -->
     <div id="loginScreen" class="login-screen">
         <div class="login-card">
             <h1>Магазин</h1>
             <p style="color:#8e9eae; margin-bottom:20px;">Войдите, чтобы продолжить</p>
             <input type="text" id="loginName" placeholder="Ваше имя">
             <input type="text" id="loginPhone" placeholder="Номер телефона">
+            <input type="email" id="loginEmail" placeholder="Email (нужен для чеков)">
             <button onclick="doLogin()">Войти</button>
         </div>
     </div>
 
-    <!-- ОСНОВНОЙ ИНТЕРФЕЙС -->
     <div id="mainScreen" class="hidden">
         <div class="header">
             <h1>Магазин</h1>
             <button class="btn-logout" onclick="logout()">Выйти</button>
         </div>
-
         <div class="tabs">
             <div class="tab active" onclick="switchTab('products')">Товары</div>
             <div class="tab" onclick="switchTab('cart')">Заказать</div>
             <div class="tab" onclick="switchTab('mycard')">Моя карта</div>
         </div>
-
         <div id="tabProducts"><div id="productsList"></div></div>
         <div id="tabCart" class="hidden"><div id="cartContent"></div></div>
         <div id="tabMyCard" class="hidden"><div id="myCardContent"></div></div>
-
         <button class="btn" style="width:100%; margin-top:12px; background:transparent; border:1px solid #2b9aff; color:#2b9aff;" onclick="alert('Ссылка на канал появится позже')">Посмотреть фото в канале</button>
     </div>
 </div>
 
 <script>
+    const SUPABASE_URL = "https://iiuahjmpszfcgtwapidt.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_iFYpqkv4D0qEOj4Dn1X9Nw_OH9d5Bji";
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
     const starsContainer = document.getElementById('starsContainer');
     for (let i = 0; i < 80; i++) {
         const star = document.createElement('div');
@@ -80,28 +81,30 @@
 
     let currentUser = JSON.parse(localStorage.getItem('store_client') || 'null');
     let cart = JSON.parse(localStorage.getItem('store_cart') || '[]');
+    let products = [];
 
-    const products = [
-        { id:101, name:'Блокнот', price:150, stock:20 },
-        { id:102, name:'Сквиш', price:200, stock:15 },
-        { id:103, name:'Вкусняшка', price:100, stock:50 }
-    ];
+    async function loadProducts() {
+        const { data } = await sb.from('store_products').select('*').order('code');
+        products = data || [];
+    }
 
     if (currentUser) {
         document.getElementById('loginScreen').classList.add('hidden');
         document.getElementById('mainScreen').classList.remove('hidden');
-        renderProducts();
+        loadProducts().then(renderProducts);
     }
 
     function doLogin() {
         const name = document.getElementById('loginName').value.trim();
         const phone = document.getElementById('loginPhone').value.trim();
-        if (!name || !phone) return alert('Заполните все поля');
-        currentUser = { name, phone };
+        const email = document.getElementById('loginEmail').value.trim();
+        if (!name || !phone || !email) return alert('Заполните все поля. Email обязателен.');
+        if (!email.includes('@') || !email.includes('.')) return alert('Введите корректный Email.');
+        currentUser = { name, phone, email };
         localStorage.setItem('store_client', JSON.stringify(currentUser));
         document.getElementById('loginScreen').classList.add('hidden');
         document.getElementById('mainScreen').classList.remove('hidden');
-        renderProducts();
+        loadProducts().then(renderProducts);
     }
 
     function logout() {
@@ -122,20 +125,24 @@
     }
 
     function renderProducts() {
+        if (!products.length) {
+            document.getElementById('productsList').innerHTML = '<p style="text-align:center;padding:20px;">Товары скоро появятся</p>';
+            return;
+        }
         document.getElementById('productsList').innerHTML = products.map(p => `
             <div class="product-item">
-                <div><b>#${p.id} ${p.name}</b><br><small>${p.price} руб | В наличии: ${p.stock}</small></div>
-                <button class="btn btn-small" onclick="addToCart(${p.id})">В корзину</button>
+                <div><b>#${p.code} ${p.name}</b><br><small>${p.price} руб | В наличии: ${p.stock}</small></div>
+                <button class="btn btn-small" onclick="addToCart('${p.code}')">В корзину</button>
             </div>
         `).join('');
     }
 
-    function addToCart(pid) {
-        const p = products.find(pr => pr.id === pid);
+    function addToCart(code) {
+        const p = products.find(pr => pr.code == code);
         if (!p || p.stock <= 0) return alert('Нет в наличии');
-        const ex = cart.find(c => c.id === pid);
+        const ex = cart.find(c => c.code == code);
         if (ex) { if (ex.qty >= p.stock) return alert('Больше нет'); ex.qty++; }
-        else cart.push({ id: pid, qty: 1 });
+        else cart.push({ code: p.code, name: p.name, price: p.price, qty: 1 });
         localStorage.setItem('store_cart', JSON.stringify(cart));
         alert('Добавлено');
     }
@@ -144,28 +151,26 @@
         if (cart.length === 0) { document.getElementById('cartContent').innerHTML = '<p style="text-align:center;padding:20px;">Корзина пуста</p>'; return; }
         let total = 0;
         document.getElementById('cartContent').innerHTML = cart.map((c, i) => {
-            const p = products.find(pr => pr.id === c.id);
-            if (!p) return '';
-            total += p.price * c.qty;
-            return `<div class="product-item"><div><b>#${p.id} ${p.name}</b><br>${p.price} x ${c.qty} = ${p.price*c.qty} руб</div>
+            total += c.price * c.qty;
+            return `<div class="product-item"><div><b>#${c.code} ${c.name}</b><br>${c.price} x ${c.qty} = ${c.price*c.qty} руб</div>
                 <div style="display:flex;gap:4px;align-items:center;">
-                    <input type="number" class="input-field" value="${c.qty}" min="1" max="${p.stock}" onchange="updateQty(${i},this.value)">
+                    <input type="number" class="input-field" value="${c.qty}" min="1" onchange="updateQty(${i},this.value)">
                     <button class="btn btn-small" style="background:#ff3b30;" onclick="removeFromCart(${i})">X</button>
                 </div></div>`;
         }).join('') + `<div class="cart-total">Итого: ${total} руб</div><button class="btn" onclick="placeOrder()" style="margin-top:12px;">Заказать</button>`;
     }
 
-    function updateQty(i, v) { v = parseInt(v); if (isNaN(v) || v < 1) v = 1; const p = products.find(pr => pr.id === cart[i].id); if (p && v > p.stock) v = p.stock; cart[i].qty = v; localStorage.setItem('store_cart', JSON.stringify(cart)); renderCart(); }
+    function updateQty(i, v) { v = parseInt(v); if (isNaN(v) || v < 1) v = 1; cart[i].qty = v; localStorage.setItem('store_cart', JSON.stringify(cart)); renderCart(); }
     function removeFromCart(i) { cart.splice(i, 1); localStorage.setItem('store_cart', JSON.stringify(cart)); renderCart(); }
 
     function placeOrder() {
         const time = prompt('На какое время? (пока заглушка)') || 'не указано';
-        const lines = cart.map(c => { const p = products.find(pr => pr.id === c.id); return p ? `#${p.id} ${p.name} - ${c.qty} шт` : ''; }).filter(Boolean).join('\n');
+        const lines = cart.map(c => `#${c.code} ${c.name} - ${c.qty} шт`).join('\n');
         window.location.href = `mailto:?subject=Заказ&body=${encodeURIComponent('Здравствуйте, хочу заказать эти позиции на ' + time + ':\n\n' + lines + '\n\nС уважением, ' + currentUser.name)}`;
     }
 
     function renderMyCard() {
-        document.getElementById('myCardContent').innerHTML = `<div class="card"><p><b>Имя:</b> ${currentUser.name}</p><p><b>Телефон:</b> ${currentUser.phone}</p><p><b>Карта:</b> ожидает активации в магазине</p></div>`;
+        document.getElementById('myCardContent').innerHTML = `<div class="card"><p><b>Имя:</b> ${currentUser.name}</p><p><b>Телефон:</b> ${currentUser.phone}</p><p><b>Email:</b> ${currentUser.email}</p><p><b>Карта:</b> ожидает активации в магазине</p></div>`;
     }
 </script>
 </body>
