@@ -22,6 +22,7 @@
         .btn { background:#2b9aff; border:none; border-radius:14px; padding:10px; color:#fff; font-weight:600; cursor:pointer; }
         .btn-small { padding:6px 12px; font-size:0.7rem; border-radius:10px; }
         .btn-danger { background:#ff3b30; }
+        .btn-disabled { opacity:0.5; pointer-events:none; }
         .input-field { width:60px; padding:6px; background:#0e1621; border:1px solid #2b3b4c; border-radius:8px; color:#fff; text-align:center; }
         .cart-total { margin-top:12px; padding-top:12px; border-top:1px solid #2b3b4c; font-weight:600; }
         .hidden { display:none !important; }
@@ -37,6 +38,14 @@
         .slider { width:100%; margin:8px 0; }
         .premium-badge { background:#ffc107; color:#000; padding:3px 8px; border-radius:8px; font-size:0.7rem; font-weight:600; }
         .map-link { display:block; text-align:center; margin-top:8px; padding:10px; background:rgba(43,154,255,0.1); border-radius:12px; color:#2b9aff; text-decoration:none; font-weight:500; }
+        .chat-btn { position:fixed; bottom:90px; right:20px; width:50px; height:50px; background:#2b9aff; border-radius:50%; border:none; color:#fff; font-size:1.5rem; cursor:pointer; z-index:60; box-shadow:0 4px 16px rgba(43,154,255,0.4); }
+        .chat-modal { position:fixed; bottom:150px; right:20px; width:300px; max-height:400px; background:#1f2c38; border-radius:20px; border:1px solid #2b3b4c; display:flex; flex-direction:column; z-index:70; overflow:hidden; }
+        .chat-messages { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; }
+        .chat-msg { padding:8px 12px; border-radius:12px; max-width:80%; }
+        .chat-msg.user { align-self:flex-end; background:#2b9aff; }
+        .chat-msg.support { align-self:flex-start; background:#2b3b4c; }
+        .chat-input-area { display:flex; gap:8px; padding:8px; border-top:1px solid #2b3b4c; }
+        .chat-input-area input { flex:1; padding:8px; background:#0e1621; border:1px solid #2b3b4c; border-radius:12px; color:#fff; }
     </style>
 </head>
 <body>
@@ -55,11 +64,20 @@
             <h1>Магазин</h1>
             <div><span id="storeStatusBadge"></span> <button class="btn-sm btn-logout" onclick="clientLogout()">Выйти</button></div>
         </div>
-        <!-- Кнопка "Место продажи" на главном экране -->
         <a id="mapLinkTop" class="map-link hidden" href="#" target="_blank">Место продажи на карте</a>
         <div id="ctabProducts"><div id="productsList"></div></div>
         <div id="ctabCart" class="hidden"><div id="cartContent"></div></div>
         <div id="ctabProfile" class="hidden"><div id="profileContent"></div></div>
+    </div>
+
+    <!-- Чат поддержки -->
+    <button class="chat-btn hidden" id="chatBtn" onclick="toggleChat()">💬</button>
+    <div class="chat-modal hidden" id="chatModal">
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" placeholder="Сообщение...">
+            <button class="btn btn-small" onclick="sendChatMessage()">Отпр.</button>
+        </div>
     </div>
 </div>
 
@@ -79,49 +97,37 @@
     let products = [];
     let storeConfig = { open: true, hours: '09:00 - 20:00', mapLink: '' };
     let discountPercent = 0;
+    let orderLocked = false;
+
+    const statusNamesRu = { new:'Новый', collecting:'Собирается', packing:'Упаковывается', ready:'Готов к выдаче', done:'Выдан', cancelled:'Отменён' };
 
     async function loadStoreConfig() {
-        // Сначала пробуем Supabase
         try {
             const { data } = await sb.from('store_config').select('*').eq('id', 1).single();
-            if (data) {
-                storeConfig.open = data.open;
-                storeConfig.hours = data.hours || '09:00 - 20:00';
-                storeConfig.mapLink = data.map_link || '';
-            }
+            if (data) { storeConfig.open = data.open; storeConfig.hours = data.hours || '09:00 - 20:00'; storeConfig.mapLink = data.map_link || ''; }
         } catch(e) {
-            // Запасной вариант — localStorage
             const saved = localStorage.getItem('store_config');
-            if (saved) {
-                try { storeConfig = JSON.parse(saved); } catch(e2) {}
-            }
+            if (saved) try { storeConfig = JSON.parse(saved); } catch(e2) {}
         }
-        
-        // Обновляем значок статуса
         document.getElementById('storeStatusBadge').innerHTML = `<span class="store-badge ${storeConfig.open ? 'store-open' : 'store-closed'}">${storeConfig.open ? 'Открыто' : 'Закрыто'}</span>`;
-        
-        // Обновляем кнопку "Место продажи"
         const mapLink = document.getElementById('mapLinkTop');
-        if (storeConfig.mapLink) {
-            mapLink.href = storeConfig.mapLink;
-            mapLink.classList.remove('hidden');
-        } else {
-            mapLink.classList.add('hidden');
-        }
+        if (storeConfig.mapLink) { mapLink.href = storeConfig.mapLink; mapLink.classList.remove('hidden'); }
+        else { mapLink.classList.add('hidden'); }
     }
-
     async function loadProducts() { try { const { data } = await sb.from('store_products').select('*').order('code'); products = data || []; } catch(e) { products = []; } }
 
     function showMainScreen() {
         document.getElementById('loginScreen').classList.add('hidden');
         document.getElementById('mainScreen').classList.remove('hidden');
         document.getElementById('clientBottomBar').style.display = 'flex';
+        document.getElementById('chatBtn').classList.remove('hidden');
         loadStoreConfig(); loadProducts().then(renderProducts);
     }
     function showLoginScreen() {
         document.getElementById('loginScreen').classList.remove('hidden');
         document.getElementById('mainScreen').classList.add('hidden');
         document.getElementById('clientBottomBar').style.display = 'none';
+        document.getElementById('chatBtn').classList.add('hidden');
     }
     if (currentUser) { showMainScreen(); }
 
@@ -172,7 +178,7 @@
             <div class="cart-total">Сумма: ${total} руб | Баллов: +${totalBonus}</div>
             ${discountPercent > 0 ? `<div class="cart-total" style="color:#4bcb6e;">Скидка: ${discountPercent}%</div>` : ''}
             <div style="margin-top:8px;"><label>Списать баллы:</label><input type="range" id="useBonusSlider" min="0" max="100" value="0" class="slider" oninput="document.getElementById('useBonusVal').innerText=this.value+'%'"><span id="useBonusVal">0%</span></div>
-            <button class="btn" onclick="clientPlaceOrder()" style="margin-top:12px;">Заказать</button>`;
+            <button class="btn ${orderLocked ? 'btn-disabled' : ''}" id="orderBtn" onclick="clientPlaceOrder()" style="margin-top:12px;">${orderLocked ? 'Подождите...' : 'Заказать'}</button>`;
     }
 
     window.applyPromo = async function() {
@@ -186,6 +192,10 @@
     function clientRemoveFromCart(i) { cart.splice(i,1); localStorage.setItem('store_cart',JSON.stringify(cart)); renderCart(); }
 
     async function clientPlaceOrder() {
+        if (orderLocked) return;
+        orderLocked = true;
+        renderCart();
+        
         const items = cart.map(c => ({ product_code: c.code, product_name: c.name, quantity: c.qty, price: c.price }));
         let total = items.reduce((s, it) => s + it.price * it.quantity, 0);
         if (discountPercent > 0) total = Math.round(total * (1 - discountPercent / 100));
@@ -216,7 +226,12 @@
         
         cart = []; discountPercent = 0; localStorage.removeItem('store_cart');
         alert('Заказ оформлен! Код для получения: ' + pickupCode);
-        renderCart();
+        
+        // Разблокируем кнопку через 15 секунд
+        setTimeout(() => {
+            orderLocked = false;
+            renderCart();
+        }, 15000);
     }
 
     async function renderProfile() {
@@ -241,8 +256,8 @@
             <h3>Мои заказы</h3>
             ${allOrders.length===0 ? '<p style="color:#8e9eae;">Нет заказов</p>' : allOrders.map(o => {
                 const items = o.items || [];
-                const itemsText = items.map(i => `#${i.product_code} ${i.product_name} x${i.quantity}`).join(', ');
-                return `<div class="order-item"><b>${new Date(o.created_at).toLocaleString('ru')}</b><br>${o.total} руб | Баллы: +${o.total_bonus||0} | Списано: ${o.use_bonus||0}<br><div>${itemsText}</div>Статус: ${o.status}
+                const itemsText = items.map(i => '#' + i.product_code).join(', ');
+                return `<div class="order-item"><b>${new Date(o.created_at).toLocaleString('ru')}</b><br>${o.total} руб | Баллы: +${o.total_bonus||0} | Списано: ${o.use_bonus||0}<br><div>Коды: ${itemsText}</div>Статус: ${statusNamesRu[o.status]||o.status}
                 ${o.status==='ready' && o.pickup_code ? `<div style="margin-top:8px;"><b>Код: ${o.pickup_code}</b></div>` : ''}
                 ${o.status==='done' ? `<button class="btn btn-small" onclick="rateOrder(${o.id})" style="margin-top:6px;">Оценить</button>` : ''}</div>`;
             }).join('')}
@@ -264,6 +279,22 @@
         if (!rating || isNaN(rating) || rating < 1 || rating > 5) return;
         await sb.from('store_orders').update({ rating: parseInt(rating) }).eq('id', orderId);
         alert('Спасибо за оценку!'); renderProfile();
+    };
+
+    // Чат поддержки
+    function toggleChat() {
+        document.getElementById('chatModal').classList.toggle('hidden');
+    }
+
+    window.sendChatMessage = function() {
+        const input = document.getElementById('chatInput');
+        const text = input.value.trim();
+        if (!text) return;
+        const messages = document.getElementById('chatMessages');
+        messages.innerHTML += `<div class="chat-msg user">${text}</div>`;
+        messages.innerHTML += `<div class="chat-msg support">Спасибо за обращение! Если у вас есть код заказа, укажите его.</div>`;
+        input.value = '';
+        messages.scrollTop = messages.scrollHeight;
     };
 </script>
 </body>
